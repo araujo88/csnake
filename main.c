@@ -1,4 +1,3 @@
-// a simple snake game which uses pthread.h library to handle user input
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,9 +9,7 @@
 
 #define SIZE_X 20
 #define SIZE_Y 20
-#define TIME 200 // game update interval (milliseconds)
-
-bool collision;
+#define TIME 100 // game update interval (milliseconds)
 
 typedef struct position
 {
@@ -26,6 +23,10 @@ typedef struct node
     struct node *next;
 } node_t;
 
+node_t *temporary;
+
+bool collision;
+
 node_t *create_new_node(position body)
 {
     node_t *result = malloc(sizeof(node_t));
@@ -34,9 +35,7 @@ node_t *create_new_node(position body)
     return result;
 }
 
-node_t *tmp;
-
-void *insert_at_head(node_t **head, node_t *node_to_insert)
+void insert_at_head(node_t **head, node_t *node_to_insert)
 {
     node_to_insert->next = *head;
     *head = node_to_insert;
@@ -205,7 +204,7 @@ void initialize_game(char game[SIZE_X][SIZE_Y], position *player_position, int *
         {
             if ((i == player_position->x) && (j == player_position->y))
             {
-                game[i][j] = 'o';
+                game[i][j] = 'O';
             }
             else
             {
@@ -215,8 +214,24 @@ void initialize_game(char game[SIZE_X][SIZE_Y], position *player_position, int *
     }
 }
 
-bool check_collision(position *player_position) // checks for collision (game over)
+bool check_collision(char game[SIZE_X][SIZE_Y], position *player_position) // checks for collision (game over)
 {
+    int i, j;
+
+    for (i = 0; i < SIZE_X; i++)
+    {
+        for (j = 0; j < SIZE_Y; j++)
+        {
+            if ((i == player_position->x) && (j == player_position->y))
+            {
+                if (game[i][j] == 'o')
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
     if (player_position->x == 0)
     {
         return false;
@@ -259,18 +274,38 @@ void update_game(char game[SIZE_X][SIZE_Y], position *player_position, int *dire
         break;
     }
 
-    node_t *temporary = *head;
+    temporary = *head;
+    int count = 0;
+    int *temp_x1 = (int *)malloc(*length * sizeof(int));
+    int *temp_y1 = (int *)malloc(*length * sizeof(int));
 
     while (temporary != NULL)
     {
-        temporary->body.x = temporary->body.x + x_inc;
-        temporary->body.y = temporary->body.y + y_inc;
+        if (count == 0)
+        {
+            temp_x1[count] = temporary->body.x;
+            temp_y1[count] = temporary->body.y;
+            temporary->body.x = player_position->x;
+            temporary->body.y = player_position->y;
+        }
+        else
+        {
+            temp_x1[count] = temporary->body.x;
+            temp_y1[count] = temporary->body.y;
+            temporary->body.x = temp_x1[count - 1];
+            temporary->body.y = temp_y1[count - 1];
+        }
 
         temporary = temporary->next;
+        count++;
     }
+    free(temp_x1);
+    free(temp_y1);
 
     player_position->x = player_position->x + x_inc;
     player_position->y = player_position->y + y_inc;
+
+    // head movement
 
     for (i = 0; i < SIZE_X; i++)
     {
@@ -282,19 +317,38 @@ void update_game(char game[SIZE_X][SIZE_Y], position *player_position, int *dire
                 {
                     position body;
                     node_t *new_seg;
-                    body.x = i;
-                    body.y = j;
+                    body.x = i - x_inc;
+                    body.y = j - y_inc;
                     *length = *length + 1;
                     new_seg = create_new_node(body);
                     insert_at_head(head, new_seg);
                 }
-                game[i][j] = 'o';
+                game[i][j] = 'O';
             }
             else if (game[i][j] != '+')
             {
                 game[i][j] = '_';
             }
         }
+    }
+
+    // body movement
+    temporary = *head;
+
+    while (temporary != NULL)
+    {
+        for (i = 0; i < SIZE_X; i++)
+        {
+            for (j = 0; j < SIZE_Y; j++)
+            {
+                if ((i == temporary->body.x) && (j == temporary->body.y))
+                {
+                    game[i][j] = 'o';
+                }
+            }
+        }
+
+        temporary = temporary->next;
     }
 }
 
@@ -317,22 +371,20 @@ void generate_fruit(char game[SIZE_X][SIZE_Y]) // generate random fruits
 int main(int argc, char *argv[])
 {
     char game[SIZE_X][SIZE_Y]; // game tiles
-    int i, j;                  // auxiliary variables
     int length = 0;            // initial length (score)
     int counter = 0;           // time counter
     float total_time;          // total game time
     int fruit_interval = 10;   // time interval (seconds) to random fruit generation
     position player_position;  // player head position (x,y)
     int direction;             // moving direction
-    int rc;
-    pthread_t pthread;   // thread to handle player input
-    node_t *head = NULL; // linked list for snake body
-
-    srand(time(NULL)); // uses time to generate random seed
+    int rc;                    // thread initializer
+    pthread_t pthread;         // thread to handle player input
+    node_t *head = NULL;       // linked list for snake body
+    srand(time(NULL));         // uses time to generate random seed
 
     begin_game();                                        // intro screen
     initialize_game(game, &player_position, &direction); // initializes variables
-    collision = check_collision(&player_position);
+    collision = check_collision(game, &player_position);
 
     rc = pthread_create(&pthread, NULL, read_move, (void *)&direction);
     if (rc)
@@ -343,12 +395,12 @@ int main(int argc, char *argv[])
 
     while (collision)
     {
-        collision = check_collision(&player_position);
+        collision = check_collision(game, &player_position);
         print_game(game);
         msleep(TIME);
         clear_screen();
         update_game(game, &player_position, &direction, &length, &head);
-        print_list(head);
+        // print_list(head);
         counter++;
         if ((counter % fruit_interval) == 0)
         {
@@ -361,8 +413,7 @@ int main(int argc, char *argv[])
     printf("\nTotal score: %d\n\n", length);
     puts("Press any key to quit ...");
 
-    free(tmp);
-    tmp = NULL;
+    free(temporary);
 
     pthread_exit(NULL);
 }
