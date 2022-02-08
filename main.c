@@ -259,6 +259,16 @@ void update_game(char game[SIZE_X][SIZE_Y], position *player_position, int *dire
         break;
     }
 
+    node_t *temporary = *head;
+
+    while (temporary != NULL)
+    {
+        temporary->body.x = temporary->body.x + x_inc;
+        temporary->body.y = temporary->body.y + y_inc;
+
+        temporary = temporary->next;
+    }
+
     player_position->x = player_position->x + x_inc;
     player_position->y = player_position->y + y_inc;
 
