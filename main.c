@@ -34,10 +34,24 @@ node_t *create_new_node(position body)
     return result;
 }
 
+node_t *tmp;
+
 void *insert_at_head(node_t **head, node_t *node_to_insert)
 {
     node_to_insert->next = *head;
     *head = node_to_insert;
+}
+
+void print_list(node_t *head)
+{
+    node_t *temporary = head;
+
+    while (temporary != NULL)
+    {
+        printf("x: %d - y: %d", temporary->body.x, temporary->body.y);
+        temporary = temporary->next;
+    }
+    printf("\n");
 }
 
 int msleep(long msec) // sleep for the requested number of milliseconds
@@ -85,12 +99,12 @@ char getch(void) // get char
     return buf;
 }
 
-int randomInt(int b, int a) // generates random integer between b and a
+int random_int(int b, int a) // generates random integer between b and a
 {
     return ((rand() % (b + 1 - a)) + a);
 }
 
-void *readMove(void *data) // argument to p_thread to read user input
+void *read_move(void *data) // argument to p_thread to read user input
 {
     int *direction = ((int *)data); // pass function void pointer to direction pointer
 
@@ -136,7 +150,7 @@ void *readMove(void *data) // argument to p_thread to read user input
     pthread_exit(NULL);
 }
 
-void beginGame() // welcome screen
+void begin_game() // welcome screen
 {
     int i;
     for (i = 0; i < 4; i++)
@@ -148,7 +162,7 @@ void beginGame() // welcome screen
     }
 }
 
-void clearScreen() // clear game screen
+void clear_screen() // clear game screen
 {
     int i;
     for (i = 0; i <= SIZE_Y; i++)
@@ -158,7 +172,7 @@ void clearScreen() // clear game screen
     }
 }
 
-void printGame(char game[SIZE_X][SIZE_Y]) // print current game
+void print_game(char game[SIZE_X][SIZE_Y]) // print current game
 {
     int i, j;
     printf("\r");
@@ -173,7 +187,7 @@ void printGame(char game[SIZE_X][SIZE_Y]) // print current game
     printf("\n");
 }
 
-void initializeGame(char game[SIZE_X][SIZE_Y], position *player_position, int *direction) // initializes variables
+void initialize_game(char game[SIZE_X][SIZE_Y], position *player_position, int *direction) // initializes variables
 {
     int i, j;
 
@@ -201,7 +215,7 @@ void initializeGame(char game[SIZE_X][SIZE_Y], position *player_position, int *d
     }
 }
 
-bool checkCollision(position *player_position) // checks for collision (game over)
+bool check_collision(position *player_position) // checks for collision (game over)
 {
     if (player_position->x == 0)
     {
@@ -225,7 +239,7 @@ bool checkCollision(position *player_position) // checks for collision (game ove
     }
 }
 
-void updateGame(char game[SIZE_X][SIZE_Y], position *player_position, int *direction, int *length) // updates snake position
+void update_game(char game[SIZE_X][SIZE_Y], position *player_position, int *direction, int *length, node_t **head) // updates snake position
 {
     int i, j, x_inc = 0, y_inc = 0;
 
@@ -256,7 +270,13 @@ void updateGame(char game[SIZE_X][SIZE_Y], position *player_position, int *direc
             {
                 if (game[i][j] == '+')
                 {
+                    position body;
+                    node_t *new_seg;
+                    body.x = i;
+                    body.y = j;
                     *length = *length + 1;
+                    new_seg = create_new_node(body);
+                    insert_at_head(head, new_seg);
                 }
                 game[i][j] = 'o';
             }
@@ -268,14 +288,14 @@ void updateGame(char game[SIZE_X][SIZE_Y], position *player_position, int *direc
     }
 }
 
-void generateFruit(char game[SIZE_X][SIZE_Y]) // generate random fruits
+void generate_fruit(char game[SIZE_X][SIZE_Y]) // generate random fruits
 {
     position fruit_position;
 
     while (true)
     {
-        fruit_position.x = randomInt(SIZE_X - 2, 1);
-        fruit_position.y = randomInt(SIZE_Y - 2, 1);
+        fruit_position.x = random_int(SIZE_X - 2, 1);
+        fruit_position.y = random_int(SIZE_Y - 2, 1);
         if (game[fruit_position.x][fruit_position.y] == '_')
         {
             game[fruit_position.x][fruit_position.y] = '+';
@@ -295,15 +315,16 @@ int main(int argc, char *argv[])
     position player_position;  // player head position (x,y)
     int direction;             // moving direction
     int rc;
-    pthread_t pthread; // thread to handle player input
+    pthread_t pthread;   // thread to handle player input
+    node_t *head = NULL; // linked list for snake body
 
     srand(time(NULL)); // uses time to generate random seed
 
-    beginGame();                                        // intro screen
-    initializeGame(game, &player_position, &direction); // initializes variables
-    collision = checkCollision(&player_position);
+    begin_game();                                        // intro screen
+    initialize_game(game, &player_position, &direction); // initializes variables
+    collision = check_collision(&player_position);
 
-    rc = pthread_create(&pthread, NULL, readMove, (void *)&direction);
+    rc = pthread_create(&pthread, NULL, read_move, (void *)&direction);
     if (rc)
     {
         printf("\nError - return code from pthread_create is %d\n", rc);
@@ -312,15 +333,16 @@ int main(int argc, char *argv[])
 
     while (collision)
     {
-        collision = checkCollision(&player_position);
-        printGame(game);
+        collision = check_collision(&player_position);
+        print_game(game);
         msleep(TIME);
-        clearScreen();
-        updateGame(game, &player_position, &direction, &length);
+        clear_screen();
+        update_game(game, &player_position, &direction, &length, &head);
+        print_list(head);
         counter++;
         if ((counter % fruit_interval) == 0)
         {
-            generateFruit(game);
+            generate_fruit(game);
         }
     }
     total_time = TIME * counter / 1000;
@@ -328,6 +350,9 @@ int main(int argc, char *argv[])
     printf("\nTotal time: %.1fs\n\n", total_time);
     printf("\nTotal score: %d\n\n", length);
     puts("Press any key to quit ...");
+
+    free(tmp);
+    tmp = NULL;
 
     pthread_exit(NULL);
 }
