@@ -24,6 +24,7 @@ typedef struct node
 } node_t;
 
 node_t *temporary;
+node_t *new_seg;
 
 bool collision;
 
@@ -107,7 +108,7 @@ void *read_move(void *data) // argument to p_thread to read user input
 {
     int *direction = ((int *)data); // pass function void pointer to direction pointer
 
-    pthread_detach(pthread_self());
+    // pthread_detach(pthread_self());
     while (collision)
     {
         if (getch() == '\033')
@@ -152,6 +153,7 @@ void *read_move(void *data) // argument to p_thread to read user input
 void begin_game() // welcome screen
 {
     int i;
+    printf("\n\n");
     for (i = 0; i < 4; i++)
     {
         printf("WELCOME TO C-SNAKE! - Initializing game in %d seconds ...\n", (3 - i));
@@ -316,7 +318,6 @@ void update_game(char game[SIZE_X][SIZE_Y], position *player_position, int *dire
                 if (game[i][j] == '+')
                 {
                     position body;
-                    node_t *new_seg;
                     body.x = i - x_inc;
                     body.y = j - y_inc;
                     *length = *length + 1;
@@ -371,6 +372,8 @@ void generate_fruit(char game[SIZE_X][SIZE_Y]) // generate random fruits
 int main(int argc, char *argv[])
 {
     char game[SIZE_X][SIZE_Y]; // game tiles
+    int score;                 // game score
+    int interval;              // game update interval (milliseconds)
     int length = 0;            // initial length (score)
     int counter = 0;           // time counter
     float total_time;          // total game time
@@ -382,6 +385,37 @@ int main(int argc, char *argv[])
     node_t *head = NULL;       // linked list for snake body
     srand(time(NULL));         // uses time to generate random seed
 
+    if (argc != 2)
+    {
+        printf("Error: wrong number of arguments provided\n");
+        return -1;
+    }
+    if (atoi(argv[1]) == 1)
+    {
+        interval = 250;
+    }
+    else if (atoi(argv[1]) == 2)
+    {
+        interval = 200;
+    }
+    else if (atoi(argv[1]) == 3)
+    {
+        interval = 150;
+    }
+    else if (atoi(argv[1]) == 4)
+    {
+        interval = 100;
+    }
+    else if (atoi(argv[1]) == 5)
+    {
+        interval = 50;
+    }
+    else
+    {
+        printf("Error - invalid difficulty level\n");
+        return -1;
+    }
+
     begin_game();                                        // intro screen
     initialize_game(game, &player_position, &direction); // initializes variables
     collision = check_collision(game, &player_position);
@@ -390,30 +424,50 @@ int main(int argc, char *argv[])
     if (rc)
     {
         printf("\nError - return code from pthread_create is %d\n", rc);
-        return EXIT_FAILURE;
+        return -1;
     }
 
     while (collision)
     {
         collision = check_collision(game, &player_position);
         print_game(game);
-        msleep(TIME);
+        msleep(interval);
         clear_screen();
         update_game(game, &player_position, &direction, &length, &head);
-        // print_list(head);
         counter++;
         if ((counter % fruit_interval) == 0)
         {
             generate_fruit(game);
         }
     }
-    total_time = TIME * counter / 1000;
+
+    total_time = interval * counter / 1000;
+    score = length * atoi(argv[1]);
+
     printf("\n*** GAME OVER! ***\n\n");
     printf("\nTotal time: %.1fs\n\n", total_time);
     printf("\nTotal score: %d\n\n", length);
+    printf("\nNormalized score: %d\n\n", score);
+
+    // Release resources
+    while (temporary != NULL)
+    {
+        free(temporary);
+        temporary = temporary->next;
+    }
+
+    while (new_seg != NULL)
+    {
+        free(new_seg);
+        new_seg = new_seg->next;
+    }
+
+    if (pthread_join(pthread, NULL) != 0)
+    {
+        return -1;
+    }
+
     puts("Press any key to quit ...");
 
-    free(temporary);
-
-    pthread_exit(NULL);
+    return 0;
 }
