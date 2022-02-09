@@ -54,6 +54,18 @@ void print_list(node_t *head)
     printf("\n");
 }
 
+void free_list(node_t *head)
+{
+    node_t *tmp;
+
+    while (head != NULL)
+    {
+        tmp = head;
+        head = head->next;
+        free(tmp);
+    }
+}
+
 int msleep(long msec) // sleep for the requested number of milliseconds
 {
     struct timespec ts;
@@ -450,17 +462,9 @@ int main(int argc, char *argv[])
     printf("\nNormalized score: %d\n\n", score);
 
     // Release resources
-    while (temporary != NULL)
-    {
-        free(temporary);
-        temporary = temporary->next;
-    }
+    free_list(temporary);
 
-    while (new_seg != NULL)
-    {
-        free(new_seg);
-        new_seg = new_seg->next;
-    }
+    free_list(new_seg);
 
     if (pthread_join(pthread, NULL) != 0)
     {
