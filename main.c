@@ -194,7 +194,16 @@ void print_game(char game[SIZE_X][SIZE_Y]) // print current game
         printf("\n");
         for (j = 0; j < SIZE_Y; j++)
         {
+            if ((game[i][j] == 'O') || (game[i][j] == 'o'))
+            {
+                printf("\033[0;32m");
+            }
+            if (game[i][j] == '+')
+            {
+                printf("\033[0;31m");
+            }
             printf("%c ", game[i][j]);
+            printf("\033[0m");
         }
     }
     printf("\n");
